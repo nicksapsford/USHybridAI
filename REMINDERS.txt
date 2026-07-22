@@ -1,0 +1,163 @@
+============================================================
+  USHybrid AI -- REMINDERS & GO-LIVE CHECKLIST
+  S&P 500 Spread Betting via Capital.com
+  Fourth active system in the Blackpool Trading Desk suite
+============================================================
+
+BEFORE GOING LIVE -- COMPLETE THIS CHECKLIST
+---------------------------------------------
+
+[ ] 1. CREATE .env FILE in C:\Users\abc\Desktop\USHybridAI\
+        Copy .env.template to .env and fill in:
+          ANTHROPIC_API_KEY=your_anthropic_key
+          CAPITALCOM_API_KEY=your_capitalcom_api_key
+          CAPITALCOM_PASSWORD=your_capitalcom_password
+          CAPITALCOM_EMAIL=your_capitalcom_email
+          CAPITALCOM_ACC_TYPE=DEMO        # change to LIVE when ready
+          PUSHOVER_USER_KEY=your_pushover_user
+          PUSHOVER_API_TOKEN=your_pushover_token
+
+        NOTE: Pushover keys can be copied from any other Blackpool system .env
+        NOTE: Capital.com credentials -- demo first, live later
+
+[ ] 2. INSTALL DEPENDENCIES
+        pip install -r requirements_ushybrid.txt
+
+[ ] 3. PAPER TRADE FIRST
+        PAPER_TRADING_MODE=True in .env
+        Run for a MINIMUM of 4 WEEKS on demo before going live
+        Confirm expectancy is positive before risking real money
+
+[ ] 4. CONFIRM PAPER TRADING WORKS
+        - Run main_ushybrid.py
+        - Check logs/us500_trades.csv populates
+        - Check logs/us500_summary.txt updates
+        - Confirm dashboard shows at http://localhost:5044
+        - Watch log output for signal generation
+
+[ ] 5. CAPITAL.COM DEMO ACCOUNT TEST
+        - Set CAPITALCOM_ACC_TYPE=DEMO in .env
+        - Set PAPER_TRADING_MODE=False in .env
+        - Run one session and confirm the Capital.com API round-trip works
+        - Verify orders appear in the Capital.com demo platform
+        - Then set PAPER_TRADING_MODE=True again for more paper testing
+
+[ ] 6. BEFORE SWITCHING TO LIVE
+        - Minimum 4 weeks paper trading with positive expectancy
+        - Kill switch never triggered by bad streak
+        - Daily summary Pushover notifications working
+        - Dashboard loading cleanly at port 5044
+        - Change CAPITALCOM_ACC_TYPE=LIVE in .env
+        - Change PAPER_TRADING_MODE=False in .env
+
+
+KEY SETTINGS (DO NOT CHANGE WITHOUT BACKTESTING)
+-------------------------------------------------
+
+EPIC:             US500            (Capital.com S&P 500, USD priced, GBP risk)
+Stop distance:    30 points        (POINTS, not %, not pips)
+Stake/point:      GBP 0.67/pt      (= GBP 20 / 30pt stop)
+Max risk/trade:   GBP 20.00        (2% of GBP 1,000 account)
+Daily loss limit: GBP 60.00        (6% of GBP 1,000 account)
+Spread cost:      ~0.4 points per trade
+Starting capital: GBP 1,000
+Force close:      20:45 UTC        (hard rule -- NEVER hold overnight)
+Trading hours:    14:30-21:00 UTC  (US session)
+Entry window:     14:45-20:45 UTC  (no entries in first 15 min or last 15 min)
+Both directions:  ON (LONG and SHORT)
+
+
+CRITICAL REMINDERS
+------------------
+
+* EPIC is US500 -- confirm before every session.
+* Stop distance is 30 POINTS. Stake is GBP 0.67 PER POINT.
+* NEVER hold a position past 20:45 UTC. No overnight positions EVER.
+* NO ENTRIES 14:30-14:45 UTC -- the US open is too volatile.
+* PAPER TRADE for a MINIMUM of 4 WEEKS before going live.
+
+
+FILE MANIFEST
+-------------
+
+capitalcom_connector.py  -- Excalibur: Capital.com API wrapper
+data_feed_us.py          -- Merlin: Indicators + data feed
+pre_checks_us.py         -- Lancelot: Pre-trade safety checks
+calendar_us.py           -- Guinevere: US economic calendar (hard blocks)
+performance_us.py        -- Morgan: Performance analytics + AI confidence
+paper_trader_us.py       -- Stanley: Paper trading + CSV logging
+notifier_us.py           -- Percival: Pushover notifications
+watchdog_us.py           -- Galahad: Process watchdog (restart on crash/freeze)
+agent_brain_us.py        -- Arthur: Claude AI decision engine
+main_ushybrid.py         -- Main trading loop (14:30-21:00 UTC)
+dashboard_us.py          -- Flask dashboard (port 5044, navy accent)
+start_ushybrid.bat       -- Windows launcher
+requirements_ushybrid.txt
+REMINDERS.txt            -- This file
+
+
+HOW TO START
+------------
+
+Option A -- Recommended (with watchdog):
+  Double-click start_ushybrid.bat
+
+Option B -- Direct:
+  cd C:\Users\abc\Desktop\USHybridAI
+  python main_ushybrid.py
+
+Dashboard (separate terminal):
+  python dashboard_us.py
+  Then open http://localhost:5044
+
+
+ARTHURIAN LEGEND TEAM
+----------------------
+
+Arthur     = Claude AI brain      (agent_brain_us.py)
+Merlin     = Data & indicators    (data_feed_us.py)
+Lancelot   = Pre-check guardian   (pre_checks_us.py)
+Excalibur  = Capital.com API      (capitalcom_connector.py)
+Guinevere  = Economic calendar    (calendar_us.py)
+Morgan     = Performance tracker  (performance_us.py)
+Galahad    = Watchdog             (watchdog_us.py)
+Percival   = Pushover notifier    (notifier_us.py)
+Stanley    = Paper trader/logger  (paper_trader_us.py)
+
+
+COMMON ISSUES
+-------------
+
+Q: Arthur keeps saying STAY_OUT even on good setups.
+A: Check Morgan confidence score. If low, conservative mode is ON (hard rule).
+   Also check kill switch status. After losses, Lancelot enforces cooldown.
+
+Q: No trades for a long time.
+A: Check trading hours -- entries only between 14:45 and 20:45 UTC.
+   Check calendar -- Guinevere blocks around high-impact US data releases.
+
+Q: Capital.com connection fails.
+A: Check .env credentials. The Capital.com API can have session timeouts.
+   Paper trading mode works without a live connection (yfinance fallback).
+
+Q: Dashboard not loading.
+A: Start dashboard_us.py in a separate terminal.
+   Main loop and dashboard are separate processes.
+   Dashboard port 5044 must not be in use.
+
+Q: Force close not happening.
+A: Force close checks continuously in the position monitoring loop.
+   It triggers at 20:45 UTC -- Lancelot also blocks new entries after 20:45.
+   Check UTC timezone conversion -- pytz must be installed.
+
+
+RISK DISCLAIMER
+---------------
+
+Spread betting involves substantial risk of loss.
+Past performance does not guarantee future results.
+The GBP 1,000 account size limits max drawdown to tolerable levels.
+Never trade with money you cannot afford to lose.
+Always start in paper trading mode and verify before going live.
+
+============================================================

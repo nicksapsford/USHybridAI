@@ -1,0 +1,25 @@
+# USHybrid AI -- Python dependencies
+# Install with: pip install -r requirements_ushybrid.txt
+
+# Capital.com API (Excalibur)
+requests>=2.31.0
+
+# Anthropic Claude AI (Arthur)
+anthropic>=0.30.0
+
+# Data
+pandas>=2.0.0
+numpy>=1.24.0
+yfinance>=0.2.40
+
+# Web dashboard
+flask>=3.0.0
+
+# Timezone handling
+pytz>=2024.1
+
+# Environment / config
+python-dotenv>=1.0.0
+
+# Process monitoring (optional but recommended for watchdog CPU check)
+psutil>=5.9.0
