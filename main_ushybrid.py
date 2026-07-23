@@ -40,14 +40,22 @@ _SESSION_END      = 21 * 60        # 21:00
 # ── Env / logging setup ───────────────────────────────────────────────────────
 
 _ENV_PATH = BASE_DIR / ".env"
-if _ENV_PATH.exists():
-    load_dotenv(dotenv_path=_ENV_PATH)
+# Capital.com / Anthropic credentials: prefer this system's own .env, then the
+# template original's .env, then a known-good sibling (all Albion systems share the
+# one Capital.com demo account). Fixes the yfinance fallback when a freshly-cloned
+# hybrid has no own .env -- TideTraderAI/.env carries only Kraken keys, no CAPITALCOM_.
+_ENV_CANDIDATES = [
+    _ENV_PATH,
+    BASE_DIR.parent / "USTraderAI" / ".env",
+    BASE_DIR.parent / "USTraderAI" / ".env",
+    BASE_DIR.parent / "GoldTraderAI" / ".env",
+]
+for _cand in _ENV_CANDIDATES:
+    if _cand.exists():
+        load_dotenv(dotenv_path=_cand)
+        break
 else:
-    _TIDE_ENV = BASE_DIR.parent / "TideTraderAI" / ".env"
-    if _TIDE_ENV.exists():
-        load_dotenv(dotenv_path=_TIDE_ENV)
-    else:
-        load_dotenv()
+    load_dotenv()
 
 # ─── ALBION STANDING RULE: ALL LOG TIMESTAMPS ARE UTC ────────────────────────
 # Force Python's logging to emit %(asctime)s in UTC, not BST/local. Without this

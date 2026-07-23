@@ -274,23 +274,13 @@ def compute_status_fields(s: dict) -> dict:
         decision = s.get("decision") or {}
         raw_dec  = decision.get("decision")
 
-        if not consulted:
-            arthur_decision = "---"
-        elif has_position:
-            arthur_decision = "HOLD"
+        # Type-1 hybrid: Arthur manages the EXIT only (Lancelot handles entry). In a
+        # position -> HOLD/EXIT; flat -> Arthur is not consulted, so MONITORING (never
+        # "STAY OUT", which would wrongly imply he made an entry decision).
+        if has_position:
+            arthur_decision = "EXIT" if (isinstance(raw_dec, str) and raw_dec.startswith("EXIT")) else "HOLD"
         else:
-            _dec_map = {
-                "ENTER_LONG":  "LONG",
-                "ENTER_SHORT": "SHORT",
-                "STAY_OUT":    "STAY OUT",
-                "HOLD":        "HOLD",
-            }
-            if raw_dec in _dec_map:
-                arthur_decision = _dec_map[raw_dec]
-            elif isinstance(raw_dec, str) and raw_dec.startswith("EXIT"):
-                arthur_decision = "STAY OUT"
-            else:
-                arthur_decision = "---"
+            arthur_decision = "MONITORING (no position)"
 
         arthur_confidence = None
         if consulted:
@@ -1030,6 +1020,14 @@ function renderPage1(d){
 
   var reasoning   = dec.reasoning || 'Waiting for next analysis cycle...';
   var blockReason = (d.pre_checks_reason) || '';
+  // Type-1 hybrid: Arthur manages EXITS only. With no open position he is NOT consulted on
+  // entry, so show a clear MONITORING state rather than a misleading "STAY OUT" (which would
+  // imply Arthur made an entry decision -- he did not; Lancelot handles entry here).
+  if(!hasOpenPosition){
+    decText     = 'MONITORING';
+    reasoning   = 'No open position — Arthur activates on entry to manage exit (HOLD/EXIT).';
+    blockReason = '';
+  }
   var reasonBox = (blockReason && mode === 'pre_checks')
     ? '<div class="block-reason">' + blockReason + '</div>'
     : '<div class="reasoning">' + reasoning + '</div>';
