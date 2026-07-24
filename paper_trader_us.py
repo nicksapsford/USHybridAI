@@ -244,6 +244,16 @@ class PaperTraderUS:
         """Close the current paper trade, update capital, save CSV."""
         if self.current_trade is None:
             return None
+        # stop-fill fidelity (Job 10, 24 Jul 2026, Nick-confirmed 23 Jul): on a
+        # STOP_LOSS exit the observed price may have gapped through the stop
+        # between 30-second monitor checks; fill at the stop level instead so the
+        # clamped price feeds the P&L computation (USD + GBP). Other exit reasons
+        # (TAKE_PROFIT, ARTHUR_EXIT, FORCE_CLOSE_EOD) keep the observed price.
+        if reason == "STOP_LOSS":
+            if self.current_trade.direction == "LONG":
+                price = max(self.current_trade.stop_loss, price)
+            else:
+                price = min(self.current_trade.stop_loss, price)
         from strategy_us import close_trade
         trade = close_trade(self.current_trade, price, reason, gbpusd_rate)
         self.capital_gbp = round(self.capital_gbp + trade.pnl_gbp, 2)
