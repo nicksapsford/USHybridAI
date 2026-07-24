@@ -894,7 +894,7 @@ function renderPerfCard(perf){
   if(perf.morgan_hard_block){
     floor = '<div style="margin-top:4px;padding:5px 7px;background:rgba(231,76,60,0.18);border:1px solid var(--red);border-radius:3px;font-size:10px;color:var(--red);font-weight:700;">' +
         '&#128680; MORGAN CRITICAL — Score: ' + mScore + '/100<br>' +
-        '<span style="font-weight:400;color:var(--muted)">Entry suspended. Gaius intervention active. Existing positions still managed.</span><br>' +
+        '<span style="font-weight:400;color:var(--muted)">Lancelot entries continue (Type-1); Arthur is managing exits aggressively. Gaius intervention active.</span><br>' +
         resetBtn + lastReset +
       '</div>';
   } else if(perf.morgan_below_floor){
@@ -1215,7 +1215,7 @@ function renderPage2(d){
     }
 
     if(perf.morgan_hard_block){
-      perfHTML += '<div class="cons-warn">&#128680; MORGAN HARD BLOCK (&lt;30) — new entries suspended; Gaius intervention active</div>';
+      perfHTML += '<div class="cons-warn">&#128680; MORGAN CRITICAL (&lt;30) — Arthur exiting aggressively; Lancelot entries continue; Gaius active</div>';
     } else if(perf.morgan_below_floor){
       perfHTML += '<div class="cons-warn" style="color:var(--amber,#f39c12);border-color:var(--amber,#f39c12)">&#9888; MORGAN WARNING (30-49) — trading continues; manual reset available</div>';
     }

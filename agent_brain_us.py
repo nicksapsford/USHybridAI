@@ -68,10 +68,12 @@ MORGAN CONFIDENCE sets how much room you give the OPEN trade (three-zone model):
   HIGH (75-100):    Give the trade more room; EXIT only on a clear reversal.
   NORMAL (50-74):   Normal exit criteria.
   WARNING (30-49):  Tighter -- EXIT on the first solid sign of deterioration.
-  CRITICAL (<30):   Protect capital -- EXIT on clear deterioration. (The SYSTEM suspends
-                    NEW entries in this zone; you only manage the existing position.)
-Morgan is context for your EXIT posture only. It does NOT gate entry (Lancelot has
-already entered) and must NOT stop you managing the trade.
+  CRITICAL (<30):   Morgan is CRITICAL. Be MAXIMALLY defensive on this open position --
+                    EXIT early, on the FIRST sign of deterioration or any loss of the
+                    entry thesis; do not wait for a clear reversal. Protect capital.
+Morgan is context for your EXIT posture only. On this Type-1 hybrid it does NOT gate
+entry (Lancelot enters mechanically regardless of Morgan) -- it only sharpens how
+aggressively you manage the EXIT. It must NOT stop you managing the trade.
 
 RULES
   - When in doubt on a WORKING trade, HOLD -- the mechanical stop/ladder protects you.

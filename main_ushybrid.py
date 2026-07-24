@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 # ── Config ────────────────────────────────────────────────────────────────────
 
 PAPER_TRADING_MODE = True
-VERSION            = "1.1.0"
+VERSION            = "1.3.0"
 CANDLE_INTERVAL    = 300      # 5-minute candle loop (seconds)
 POSITION_INTERVAL  = 30       # position monitoring (seconds)
 HEARTBEAT_INTERVAL = 240      # emit a liveness log at least this often, even when idle
@@ -498,16 +498,12 @@ def run_candle_tick(
                         trend_1d=trend_1d, trend_1h=sig_1h, signal_5m=sig_5m,
                         indicators_1d=ind_1d, indicators_1h=ind_1h, indicators_5m=ind_5m)
 
-    # ── Zone-3 MORGAN HARD BLOCK (three-zone model, 24 Jul 2026, Nick's direct order) ──
-    # Below 30, suspend NEW (mechanical Lancelot) entries and let Gaius intervene. Exits
-    # are handled above in the in_trade branch, so open positions are unaffected.
-    # (Zone 2, 30-49, is WARNING only: entries continue, no code restriction here.)
-    _morgan_now = get_perf_dashboard_dict().get("confidence_score")
-    if performance_us.morgan_hard_block(50 if _morgan_now is None else _morgan_now):
-        log.warning("MORGAN HARD BLOCK: confidence %s < 30 -- new entries suspended "
-                    "(Gaius intervention active)", _morgan_now)
-        _push_flat()
-        return
+    # NOTE (Job 2, 24 Jul 2026): a Type-1 hybrid's ENTRY is Lancelot-only and must fire
+    # REGARDLESS of Morgan -- so there is NO Morgan hard-block on entry here (the earlier
+    # three-zone hard-block was removed as architecturally wrong for Type-1). Morgan <30
+    # instead sharpens Arthur's EXIT posture (see the in_trade branch above, which passes
+    # the critical-Morgan context into Arthur's exit decision). Type-2 hybrids (Gold/Oil,
+    # where Arthur gates entry) KEEP their entry hard-block.
 
     if not checks["passed"]:
         log.info("Pre-checks FAILED: %s", checks.get("reason"))
