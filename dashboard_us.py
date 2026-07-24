@@ -853,6 +853,18 @@ function buildLeftCol(trend1d, trend1h, signal5m, ind1d, ind1h, ind5m, phase, up
     '</div>';
 }
 
+/* Manual Morgan reset (three-zone model) */
+function resetMorgan(){
+  if(!confirm('Reset Morgan confidence to 50? Do this only after reviewing the phantom data and trade history.')) return;
+  fetch('/api/reset-morgan', {method:'POST'})
+    .then(function(r){ return r.json(); })
+    .then(function(res){
+      alert(res.confirmation || ('Morgan reset requested (to ' + (res.to || 50) + ').'));
+      if(typeof refreshDashboard === 'function') refreshDashboard();
+    })
+    .catch(function(){ alert('Morgan reset request failed.'); });
+}
+
 /* Performance card (Page 1, compact) */
 function renderPerfCard(perf){
   var total = perf ? (perf.total_trades || 0) : 0;
@@ -870,9 +882,30 @@ function renderPerfCard(perf){
   var stStr  = stCnt > 0 ? (stCnt + ' ' + (stType==='WIN'?'WIN':'LOSS') + (stCnt>1?'S':'')) : '--';
   var r5     = perf.recent_5 || [];
   var dots   = r5.map(function(r){ return '<span class="perf-dot ' + (r==='WIN'?'perf-win':'perf-loss') + '"></span>'; }).join('');
-  var cons   = perf.conservative
-    ? '<div style="margin-top:4px;padding:3px 6px;background:rgba(231,76,60,0.1);border:1px solid var(--red);border-radius:3px;font-size:10px;color:var(--red);font-weight:700;">CONSERVATIVE MODE &mdash; STAY OUT</div>'
+  // Three-zone Morgan panel (24 Jul 2026): CRITICAL (<30, hard block) / WARNING (30-49,
+  // trading continues) / normal (>=50). Reset button available in both non-normal zones.
+  var mScore = (perf.morgan_raw != null ? perf.morgan_raw : score);
+  var lastReset = perf.morgan_last_reset
+    ? '<div style="margin-top:3px;font-weight:400;color:var(--muted);font-size:9px;">Morgan last reset: ' + perf.morgan_last_reset + '</div>'
     : '';
+  var resetBtn = '<button onclick="resetMorgan()" style="margin-top:5px;padding:3px 9px;background:var(--red);color:#fff;border:none;border-radius:3px;font-size:10px;font-weight:700;cursor:pointer;">RESET MORGAN TO 50</button>';
+  var cons = '';
+  var floor;
+  if(perf.morgan_hard_block){
+    floor = '<div style="margin-top:4px;padding:5px 7px;background:rgba(231,76,60,0.18);border:1px solid var(--red);border-radius:3px;font-size:10px;color:var(--red);font-weight:700;">' +
+        '&#128680; MORGAN CRITICAL — Score: ' + mScore + '/100<br>' +
+        '<span style="font-weight:400;color:var(--muted)">Entry suspended. Gaius intervention active. Existing positions still managed.</span><br>' +
+        resetBtn + lastReset +
+      '</div>';
+  } else if(perf.morgan_below_floor){
+    floor = '<div style="margin-top:4px;padding:5px 7px;background:rgba(243,156,18,0.14);border:1px solid var(--amber,#f39c12);border-radius:3px;font-size:10px;color:var(--amber,#f39c12);font-weight:700;">' +
+        '&#9888; MORGAN WARNING — Score: ' + mScore + '/100<br>' +
+        '<span style="font-weight:400;color:var(--muted)">Performance under review. Trading continues. Manual reset available.</span><br>' +
+        resetBtn + lastReset +
+      '</div>';
+  } else {
+    floor = lastReset;
+  }
   return '<div class="card"><div class="card-title gold">Arthur Self-Performance</div>' +
     '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">' +
     '<span style="font-size:10px;color:var(--muted);min-width:60px">Confidence</span>' +
@@ -885,7 +918,7 @@ function renderPerfCard(perf){
     '<span>Streak: <strong style="color:' + stCol + '">' + stStr + '</strong></span>' +
     '<span>Trades: <strong style="color:var(--gold-lite)">' + total + '</strong></span>' +
     '<span>WR: <strong style="color:var(--text)">' + fmt(perf.win_rate,1) + '%</strong></span>' +
-    '</div>' + cons + '</div>';
+    '</div>' + cons + floor + '</div>';
 }
 
 /* STAY OUT QUALITY panel -- phantom trade decision quality */
@@ -1181,8 +1214,10 @@ function renderPage2(d){
       perfHTML += '</div>';
     }
 
-    if(perf.conservative){
-      perfHTML += '<div class="cons-warn">CONSERVATIVE MODE ACTIVE &mdash; System staying out pending improved performance</div>';
+    if(perf.morgan_hard_block){
+      perfHTML += '<div class="cons-warn">&#128680; MORGAN HARD BLOCK (&lt;30) — new entries suspended; Gaius intervention active</div>';
+    } else if(perf.morgan_below_floor){
+      perfHTML += '<div class="cons-warn" style="color:var(--amber,#f39c12);border-color:var(--amber,#f39c12)">&#9888; MORGAN WARNING (30-49) — trading continues; manual reset available</div>';
     }
   }
 
@@ -1569,6 +1604,31 @@ def api_lift_confidence():
             json.dumps({"confidence": to, "reason": reason, "requested_utc": ts}),
             encoding="utf-8")
         return jsonify({"status": "lift_requested", "to": to,
+                        "note": "engine applies on next cycle (live, no restart)"})
+    except Exception as exc:
+        return jsonify({"status": "error", "error": str(exc)}), 500
+
+
+@app.route("/api/reset-morgan", methods=["POST"])
+def api_reset_morgan():
+    """Manual Morgan reset to 50 (Nick-controlled, three-zone model). Morgan is allowed
+    to drop into the WARNING (30-49) or HARD BLOCK (<30) zones and a dashboard panel
+    fires; Nick reviews the evidence and clicks RESET. Writes confidence_lift.json (engine
+    applies live, no restart) + records the reset timestamp for the dashboard/Archie Brief."""
+    import json
+    ts = datetime.now(timezone.utc)
+    ts_iso = ts.isoformat()
+    ts_disp = ts.strftime("%Y-%m-%d %H:%M UTC")
+    reason = "MANUAL MORGAN RESET to 50 via /api/reset-morgan (Nick). %s" % ts_disp
+    try:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        (LOG_DIR / "confidence_lift.json").write_text(
+            json.dumps({"confidence": 50.0, "reason": reason, "requested_utc": ts_iso}),
+            encoding="utf-8")
+        (LOG_DIR / "morgan_last_reset.json").write_text(
+            json.dumps({"reset_utc": ts_disp}), encoding="utf-8")
+        return jsonify({"status": "reset_requested", "to": 50,
+                        "confirmation": "Morgan reset to 50 at %s" % ts.strftime("%H:%M UTC"),
                         "note": "engine applies on next cycle (live, no restart)"})
     except Exception as exc:
         return jsonify({"status": "error", "error": str(exc)}), 500

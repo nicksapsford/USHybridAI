@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 # ── Config ────────────────────────────────────────────────────────────────────
 
 PAPER_TRADING_MODE = True
-VERSION            = "1.0.8"
+VERSION            = "1.1.0"
 CANDLE_INTERVAL    = 300      # 5-minute candle loop (seconds)
 POSITION_INTERVAL  = 30       # position monitoring (seconds)
 HEARTBEAT_INTERVAL = 240      # emit a liveness log at least this often, even when idle
@@ -494,6 +494,17 @@ def run_candle_tick(
                         connector_status=connector_status, panel_mode=panel,
                         trend_1d=trend_1d, trend_1h=sig_1h, signal_5m=sig_5m,
                         indicators_1d=ind_1d, indicators_1h=ind_1h, indicators_5m=ind_5m)
+
+    # ── Zone-3 MORGAN HARD BLOCK (three-zone model, 24 Jul 2026, Nick's direct order) ──
+    # Below 30, suspend NEW (mechanical Lancelot) entries and let Gaius intervene. Exits
+    # are handled above in the in_trade branch, so open positions are unaffected.
+    # (Zone 2, 30-49, is WARNING only: entries continue, no code restriction here.)
+    _morgan_now = get_perf_dashboard_dict().get("confidence_score")
+    if performance_us.morgan_hard_block(50 if _morgan_now is None else _morgan_now):
+        log.warning("MORGAN HARD BLOCK: confidence %s < 30 -- new entries suspended "
+                    "(Gaius intervention active)", _morgan_now)
+        _push_flat()
+        return
 
     if not checks["passed"]:
         log.info("Pre-checks FAILED: %s", checks.get("reason"))

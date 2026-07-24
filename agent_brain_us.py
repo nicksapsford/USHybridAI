@@ -64,11 +64,12 @@ HOLD the position if the trade is still working:
   - The Profit Protection Ladder is already protecting gains -- let it run.
   - Plenty of session time remaining and no clear reversal signal.
 
-MORGAN CONFIDENCE sets how much room you give the trade:
-  HIGH (75-100):   Give the trade more room; EXIT only on a clear reversal.
-  MEDIUM (50-74):  Normal exit criteria.
-  LOW (25-49):     Tighter -- EXIT on the first solid sign of deterioration.
-  VERY LOW (0-24): EXIT on ANY deterioration; protect capital.
+MORGAN CONFIDENCE sets how much room you give the OPEN trade (three-zone model):
+  HIGH (75-100):    Give the trade more room; EXIT only on a clear reversal.
+  NORMAL (50-74):   Normal exit criteria.
+  WARNING (30-49):  Tighter -- EXIT on the first solid sign of deterioration.
+  CRITICAL (<30):   Protect capital -- EXIT on clear deterioration. (The SYSTEM suspends
+                    NEW entries in this zone; you only manage the existing position.)
 Morgan is context for your EXIT posture only. It does NOT gate entry (Lancelot has
 already entered) and must NOT stop you managing the trade.
 

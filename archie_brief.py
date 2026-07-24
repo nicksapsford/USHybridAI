@@ -205,6 +205,16 @@ def build_system_brief(state, system_name, asset_label, logs_dir=None, now_utc=N
     if start is not None and cur is not None:
         jr = " | Journey: %s->%s" % (_num(start, 0), _num(cur, 0))
     a("Score: %s/100 (%s)%s" % (perf.get("confidence_score", "--"), perf.get("confidence_level", "--"), jr))
+    _mraw = perf.get("morgan_raw", perf.get("confidence_score", "--"))
+    if perf.get("morgan_hard_block"):
+        a("MORGAN CRITICAL: %s/100 -- entry suspended; Gaius intervention active." % _mraw)
+        a("  Existing positions still managed. Manual reset available once performance recovers.")
+    elif perf.get("morgan_below_floor"):
+        a("MORGAN WARNING: %s/100 (zone 30-49) -- trading continues." % _mraw)
+        a("  Manual reset available -- review phantom data and trade history first.")
+    _lr = perf.get("morgan_last_reset")
+    if _lr:
+        a("Last manual reset: %s" % _lr)
     a("")
     a("STAY OUT QUALITY")
     dcount = soq.get("decisions")
