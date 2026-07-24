@@ -99,23 +99,22 @@ REQUIRED OUTPUT -- valid JSON only. No markdown, no preamble.
 # ── Format indicators for Arthur ──────────────────────────────────────────────
 
 def _regime_block(regime: Optional[dict], min_confidence) -> str:
-    """Live BULL/BEAR regime + LONG_ONLY + confidence-floor block for Arthur."""
+    """Live BULL/BEAR regime CONTEXT block for Arthur (bidirectional, symmetric)."""
     if not regime:
-        return ("REGIME AND GATE (current)\n"
-                "  Regime: BULL (assumed) | LONG_ONLY | min confidence to act: 50")
+        return ("REGIME (context)\n"
+                "  Regime: BULL (assumed) | bidirectional | min confidence to act: 50")
     reg = regime.get("regime", "BULL")
     mc = 50 if min_confidence is None else int(min_confidence)
     lvl = regime.get("sp500_level"); ma = regime.get("sp500_200ma")
     vix = regime.get("vix_level")
     pos = ("ABOVE" if regime.get("sp500_above_200ma") else "AT/BELOW")
     return (
-        "REGIME AND GATE (current)\n"
+        "REGIME (context)\n"
         f"  Regime: {reg}  (S&P {pos} 200MA"
         + (f": {lvl} vs {ma}" if lvl and ma else "") + f", VIX {vix})\n"
-        f"  USHybrid is LONG_ONLY -- never SHORT. "
-        + ("Bull confirmed: act on valid dips.\n" if reg == "BULL"
-           else "BEAR: stay out, wait for the bull to reassert (do NOT short).\n")
-        + f"  Minimum confidence to open a LONG: {mc} (the system enforces this floor)."
+        f"  USHybrid is BIDIRECTIONAL -- LONG and SHORT are treated identically; "
+        f"regime is context only and does not favour either direction.\n"
+        f"  Minimum confidence to act: {mc} (same floor for LONG and SHORT)."
     )
 
 

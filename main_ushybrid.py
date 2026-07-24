@@ -102,11 +102,12 @@ import regime_us   # market-regime reader (System 4 Review, 18 Jul 2026)
 US_EPIC     = "US500"
 GBPUSD_EPIC = "GBPUSD"
 
-# Minimum Arthur confidence to open a LONG (System 4 Review, Change 1). Regime-aware:
-# a confirmed bull market (S&P above 200MA) uses a lower bar; a bear market reverts to
-# the stricter bar. NOTE: no such gate existed before -- this CREATES it (see report).
+# Minimum Arthur confidence (System 4 Review, Change 1). Bidirectional sweep
+# (24 Jul 2026, Nick's direct order): the bull/bear asymmetry is REMOVED -- a single
+# symmetric floor of 50 applies regardless of regime, for LONG and SHORT alike. On this
+# EXIT manager min_conf is context/display for Arthur only (it gates no mechanical entry).
 ARTHUR_MIN_CONFIDENCE_BULL = 50
-ARTHUR_MIN_CONFIDENCE_BEAR = 55
+ARTHUR_MIN_CONFIDENCE_BEAR = 50
 
 # ── Graceful shutdown ─────────────────────────────────────────────────────────
 
@@ -441,9 +442,11 @@ def run_candle_tick(
     _ssl_1d = bar_1d.get("ssl_bull")
     proposed_direction = "NEUTRAL" if (_ssl_1d is None or _ssl_1d != _ssl_1d) else trend_1d
 
-    # Regime for the confidence gate (Change 1) and Arthur's prompt (Change 6).
+    # Regime is CONTEXT for Arthur's prompt only now -- no longer raises/lowers the
+    # confidence bar (bidirectional sweep, 24 Jul 2026). Single symmetric floor for
+    # LONG and SHORT. On this EXIT manager min_conf is display-only (gates no entry).
     regime = regime_us.get_regime()
-    min_conf = ARTHUR_MIN_CONFIDENCE_BULL if regime.get("regime") == "BULL" else ARTHUR_MIN_CONFIDENCE_BEAR
+    min_conf = ARTHUR_MIN_CONFIDENCE_BULL
 
     ind_1d = _indicator_snapshot(bar_1d)
     ind_1h = _indicator_snapshot(bar_1h)
@@ -452,8 +455,8 @@ def run_candle_tick(
     # ── HYBRID DECISION ───────────────────────────────────────────────────
     # USHybrid: Arthur manages the EXIT only. Entry is LANCELOT-only -- pre-checks +
     # 3-timeframe SSL agreement (BIDIRECTIONAL) + a 60-min calendar look-ahead. Arthur
-    # is NEVER consulted on entry; no confidence/RSI entry gate beyond the SHORT Morgan
-    # gate. No phantom logging in this system.
+    # is NEVER consulted on entry; no confidence/RSI entry gate and no Morgan SHORT gate
+    # (fully bidirectional, 24 Jul 2026). No phantom logging in this system.
     if stanley.in_trade:
         # EXIT MANAGEMENT -- Arthur decides HOLD or EXIT only.
         decision = get_trading_decision(
@@ -532,15 +535,9 @@ def run_candle_tick(
         _push_flat()
         return
 
-    # Morgan SHORT gate -- SHORT entries require Morgan confidence >= 65.
-    if ssl_dir == "SHORT":
-        _morgan = get_perf_dashboard_dict().get("confidence_score")
-        if _morgan is None:
-            _morgan = 50
-        if _morgan < 65:
-            log.info("SHORT entry blocked -- Morgan confidence below 65 (current: %s)", _morgan)
-            _push_flat()
-            return
+    # Fully bidirectional (24 Jul 2026, Nick's direct order): the Morgan SHORT gate was
+    # removed -- SHORT entries now proceed identically to LONG entries. (The three-zone
+    # Morgan HARD BLOCK above, which suspends ALL new entries below 30, is unaffected.)
 
     # Calendar look-ahead -- HARD BLOCK a new entry if a major event is within 60 min.
     if _major_event_within(now_utc, 60):
