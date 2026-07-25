@@ -1623,7 +1623,8 @@ def api_reset_morgan():
     try:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
         (LOG_DIR / "confidence_lift.json").write_text(
-            json.dumps({"confidence": 50.0, "reason": reason, "requested_utc": ts_iso}),
+            json.dumps({"confidence": 50.0, "reason": reason,
+                        "reset_gating": True, "requested_utc": ts_iso}),
             encoding="utf-8")
         (LOG_DIR / "morgan_last_reset.json").write_text(
             json.dumps({"reset_utc": ts_disp}), encoding="utf-8")

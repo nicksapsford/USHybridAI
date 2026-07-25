@@ -47,6 +47,14 @@ _morgan_confidence = None
 MORGAN_FLOOR      = 50   # WARNING threshold (Zone 2 starts below this) -- NOT a clamp
 MORGAN_HARD_BLOCK = 30   # HARD BLOCK threshold (Zone 3: no new entries below this)
 _MORGAN_LAST_RESET_PATH = os.path.join(os.path.dirname(__file__), 'logs', 'morgan_last_reset.json')
+# ── Manual-reset anchor (Nick's signed-off change, 25 Jul 2026) ───────────────
+# A manual reset must mean "Morgan is now 50, full stop" -- it clamps the LIVE
+# GATING score to 50, not just the phantom-delta baseline. reset_to_50() records
+# a persistent additive offset here so the reported confidence reads exactly 50 at
+# the moment of reset, then accumulates drift from zero going forward. Persisted so
+# the reset survives a restart. Default 0.0 = no manual reset in force.
+_MORGAN_RESET_OFFSET_PATH = os.path.join(os.path.dirname(__file__), 'logs', 'morgan_reset_offset.json')
+_morgan_reset_offset = None
 
 
 def morgan_below_floor(score) -> bool:
@@ -161,6 +169,64 @@ def set_confidence(value, reason='update'):
         save_confidence(_morgan_confidence, reason)
         log.info("Morgan: confidence set to %.1f", _morgan_confidence)
         return _morgan_confidence
+
+
+def _load_reset_offset():
+    """Persistent additive offset that pins the reported gating score to 50 at the
+    moment of a manual reset, then lets it drift from there. 0.0 = no reset in force."""
+    global _morgan_reset_offset
+    if _morgan_reset_offset is None:
+        try:
+            with open(_MORGAN_RESET_OFFSET_PATH) as f:
+                _morgan_reset_offset = float(json.load(f).get('offset', 0.0))
+        except Exception:
+            _morgan_reset_offset = 0.0
+    return _morgan_reset_offset
+
+
+def _save_reset_offset(offset):
+    global _morgan_reset_offset
+    _morgan_reset_offset = float(offset)
+    try:
+        os.makedirs(os.path.dirname(_MORGAN_RESET_OFFSET_PATH), exist_ok=True)
+        with open(_MORGAN_RESET_OFFSET_PATH, 'w') as f:
+            json.dump({'offset': _morgan_reset_offset}, f)
+    except Exception as e:
+        log.warning("Morgan: could not persist reset offset: %s", e)
+    return _morgan_reset_offset
+
+
+def _apply_reset_offset(score):
+    """Fold the manual-reset anchor into a computed score so the reported gating
+    confidence reads 50 at the moment Nick resets, then drifts from there."""
+    return int(max(0, min(100, score + _load_reset_offset())))
+
+
+def reset_to_50(reason='MANUAL_RESET_NICK'):
+    """Manual Morgan reset (Nick, signed off 25 Jul 2026). Clamp the LIVE GATING
+    score to 50 immediately -- not just the phantom-delta baseline. Steps: (1) zero
+    the baseline so its own contribution is neutral; (2) clear any prior offset and
+    read the true raw score; (3) anchor a new offset so the reported score reads
+    exactly 50 now and accumulates drift from zero going forward; (4) write a 50.0
+    row to the CSV audit trail (restart restores 50). Applied live -- no restart."""
+    global _morgan_confidence
+    with _morgan_lock:
+        _morgan_confidence = 50.0
+        try:
+            os.makedirs(os.path.dirname(_MORGAN_STATE_PATH), exist_ok=True)
+            with open(_MORGAN_STATE_PATH, 'w') as f:
+                json.dump({'confidence': 50.0}, f)
+        except Exception as e:
+            log.warning("Morgan: could not persist confidence on reset: %s", e)
+    _save_reset_offset(0.0)
+    invalidate_cache()
+    raw = float(get_perf_dashboard_dict().get('confidence_score', 50))
+    _save_reset_offset(50.0 - raw)
+    invalidate_cache()
+    save_confidence(50.0, reason)
+    log.warning("Morgan MANUAL RESET: gating clamped to 50.0 (raw was %.1f, offset %+.1f) [%s]",
+                raw, 50.0 - raw, reason)
+    return 50.0
 
 
 def apply_phantom_verdict_feedback(verdict, pnl_1hr, current_confidence):
@@ -301,6 +367,7 @@ def _compute_confidence(df: pd.DataFrame) -> dict:
         base_score = max(0, min(100, 50 + get_stay_out_adjustment()))
         # Individual phantom feedback delta (persistent, centred on 50).
         base_score = max(0, min(100, base_score + (get_confidence() - 50.0)))
+        base_score = _apply_reset_offset(base_score)
         return {
             "confidence_score":  base_score,
             "confidence_level":  "MEDIUM",
@@ -355,6 +422,7 @@ def _compute_confidence(df: pd.DataFrame) -> dict:
     score = max(0, min(100, score + get_stay_out_adjustment()))
     # Individual phantom feedback delta (persistent, centred on 50).
     score = max(0, min(100, score + (get_confidence() - 50.0)))
+    score = _apply_reset_offset(score)
 
     if score >= 75:   level = "HIGH"
     elif score >= 50: level = "MEDIUM"

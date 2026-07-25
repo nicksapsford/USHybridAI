@@ -751,8 +751,16 @@ def _apply_confidence_lift() -> None:
         if not LIFT_FLAG.exists():
             return
         data = json.loads(LIFT_FLAG.read_text(encoding="utf-8"))
-        val = max(0.0, min(100.0, float(data.get("confidence", 50.0))))
         reason = data.get("reason") or "CONFIDENCE LIFT -- manual override"
+        if data.get("reset_gating"):
+            # Nick's manual reset (signed off 25 Jul 2026): clamp the LIVE GATING
+            # score to 50, not just the phantom-delta baseline. "Morgan is now 50."
+            prior = performance_us.get_perf_dashboard_dict().get("confidence_score")
+            performance_us.reset_to_50(reason=reason)
+            LIFT_FLAG.unlink(missing_ok=True)
+            log.warning("Morgan MANUAL RESET applied live: gating %s -> 50.0 (%s)", prior, reason)
+            return
+        val = max(0.0, min(100.0, float(data.get("confidence", 50.0))))
         prior = performance_us.get_confidence()
         performance_us.set_confidence(val, reason=reason)
         LIFT_FLAG.unlink(missing_ok=True)
